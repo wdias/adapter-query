@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { MongoClient, Db } from "mongodb";
+import { MongoClient, Db, MongoError } from "mongodb";
 
 import express from "express";
 import compression from "compression";  // compresses requests
@@ -21,26 +21,63 @@ export const initDatabase = async () => {
   const mongodbSVC: string = 'adapter-query-mongodb.default.svc.cluster.local'
   const client: MongoClient = await MongoClient.connect(`mongodb://root:root123@${mongodbSVC}:27017/?authSource=admin`, { useNewUrlParser: true });
   db = client.db('query');
-  await db.collection('locations').insertOne({
-    location: { type: "Point", coordinates: [0.0, 0.0] },
-    name: 'Zero',
-    category: "Location"
-  });
+  try {
+    await db.collection('locations').insertOne({
+      location: { type: "Point", coordinates: [0.0, 0.0] },
+      name: 'Zero',
+      locationId: 'zeroId',
+      category: "Location"
+    });
+  } catch (error) {
+    if (!(error instanceof MongoError)) {
+      throw error;
+    }
+  }
   db.collection('locations').createIndex({ location: "2dsphere" });
+  db.collection('locations').createIndex({ locationId: 1 }, { unique: true });
+  try {
+    await db.collection('parameters').insertOne({
+      locationId: 'zeroId',
+      parameter: {
+        parameterId: 'O.Precipitation',
+        variable: 'Precipitation',
+        unit: 'mm',
+        parameterType: 'Instantaneous'
+      }
+    });
+  } catch (error) {
+    if (!(error instanceof MongoError)) {
+      throw error;
+    }
+  }
+  db.collection('parameters').createIndex({ "locationId": 1, "parameter.parameterId": 1 }, { unique: true });
 }
 
 app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
   try {
     const timeseriesId: string = req.params.timeseriesId;
-    console.log('timeseriesId: ', timeseriesId);
+    console.log('/index timeseriesId: ', timeseriesId);
     const data: JSON = req.body;
     const metadata: Metadata = metadataDecoder.runWithException(data);
-    await db.collection('locations').insertOne({
-      location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
-      name: metadata.location.name,
-      category: "Location"
-    });
-    res.send(JSON.stringify(metadata));
+    try {
+      await db.collection('locations').insertOne({
+        location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
+        name: metadata.location.name,
+        locationId: metadata.location.locationId,
+        category: "Location"
+      });
+      await db.collection('parameters').insertOne({
+        locationId: metadata.location.locationId,
+        parameter: metadata.parameter,
+      });
+    } catch (error) {
+      if (error instanceof MongoError) {
+        return res.status(204).send({ errmsg: error.errmsg });
+      } else {
+        throw error;
+      }
+    }
+    return res.send(JSON.stringify(metadata));
   } catch (e) {
     res.status(500).send(e.toString());
   }
@@ -49,14 +86,11 @@ app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
 app.post('/location', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    console.log('data: ', data);
+    console.log('/location data: ', data);
     if ('type' in data) {
-      console.log('has type')
       const obj: GeoJsonObject = data;
-      console.log('obj: ', obj);
       if (obj.type === 'Polygon') {
         const polygon: Polygon = data;
-        console.log('polygon: ', obj);
         const locations = await db.collection('locations').find({
           location: {
             $geoWithin: {
@@ -80,13 +114,13 @@ app.post('/location', async (req: Request, res: Response) => {
 app.post('/parameter', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    const metadata: Metadata = metadataDecoder.runWithException(data);
-    await db.collection('locations').insertOne({
-      loc: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
-      name: metadata.location.name,
-      category: "Location"
-    });
-    res.send(JSON.stringify(metadata));
+    console.log('/parameter data:', data);
+    if (Array.isArray(data) && data.length) {
+      const parameters = await db.collection('parameters').find({ locationId: { $in: data } }).toArray();
+      res.send(parameters);
+    } else {
+      res.status(500).send('Should be an array of locationId');
+    }
   } catch (e) {
     res.status(500).send(e.toString());
   }

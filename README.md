@@ -31,3 +31,37 @@ TODO (Time support: Get Timeseries on given time)
 
 
 Get Timeseries data by giving the location details via GeoJSON - http://geojson.io
+
+# /location
+POST with GeoJson objects
+```json
+{
+    "type": "Polygon",
+    "coordinates": [
+        [
+            [
+                79.48471069335938,
+                6.311203650047962
+            ],
+            [
+                81.0516357421875,
+                6.311203650047962
+            ],
+            [
+                81.0516357421875,
+                7.607552723017506
+            ],
+            [
+                79.48471069335938,
+                7.607552723017506
+            ],
+            [
+                79.48471069335938,
+                6.311203650047962
+            ]
+        ]
+    ]
+}
+```
+
+# /parameter
