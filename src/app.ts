@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
-import { MongoClient, Db, MongoError } from "mongodb";
+import { MongoClient, Db, MongoError, InsertOneWriteOpResult } from "mongodb";
 
 import express from "express";
 import compression from "compression";  // compresses requests
 import expressValidator from "express-validator";
 import bodyParser from "body-parser";
-import { Metadata, metadataDecoder } from './types';
 import { Polygon, GeoJsonObject } from "geojson";
+import { Metadata, metadataDecoder } from './types';
+import { timeseriesQueryDecoder, TimeseriesQuery } from "./types/query";
 import { initLocations, initParameters, initTimeseries } from "./utils";
 
 // Create Express server
@@ -27,31 +28,41 @@ export const initDatabase = async () => {
   initTimeseries(db);
 }
 
+const insertOnewithFail = async (database: Db, collection: string, data: object): Promise<string> => {
+  try {
+    const result: InsertOneWriteOpResult = await database.collection(collection).insertOne(data);
+    return `${collection}-${result.insertedId}`;
+  } catch (error) {
+    if (error instanceof MongoError) {
+      return error.message;
+    } else {
+      throw error;
+    }
+  }
+}
+
 app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
   try {
     const timeseriesId: string = req.params.timeseriesId;
     console.log('/index timeseriesId: ', timeseriesId);
     const data: JSON = req.body;
     const metadata: Metadata = metadataDecoder.runWithException(data);
-    try {
-      await db.collection('locations').insertOne({
-        location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
-        name: metadata.location.name,
-        locationId: metadata.location.locationId,
-        category: "Location"
-      });
-      await db.collection('parameters').insertOne({
-        locationId: metadata.location.locationId,
-        parameter: metadata.parameter,
-      });
-    } catch (error) {
-      if (error instanceof MongoError) {
-        return res.status(204).send({ errmsg: error.errmsg });
-      } else {
-        throw error;
-      }
-    }
-    return res.send(JSON.stringify(metadata));
+    let msg: string[] = [];
+    const resLocations: string = await insertOnewithFail(db, 'locations', {
+      location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
+      name: metadata.location.name,
+      locationId: metadata.location.locationId,
+      category: "Location"
+    });
+    const resParamters: string = await insertOnewithFail(db, 'parameters', {
+      locationId: metadata.location.locationId,
+      parameter: metadata.parameter,
+    });
+    const resTimeseries: string = await insertOnewithFail(db, 'timeseries', {
+      timeseriesId: timeseriesId,
+      ...data,
+    });
+    res.send([resLocations, resParamters, resTimeseries]);
   } catch (e) {
     res.status(500).send(e.toString());
   }
@@ -103,13 +114,16 @@ app.post('/parameter', async (req: Request, res: Response) => {
 app.post('/timeseries', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    const metadata: Metadata = metadataDecoder.runWithException(data);
-    await db.collection('locations').insertOne({
-      loc: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
-      name: metadata.location.name,
-      category: "Location"
-    });
-    res.send(JSON.stringify(metadata));
+    console.log('/timeseries data:', data);
+    const query: TimeseriesQuery = timeseriesQueryDecoder.runWithException(data);
+    if (query.location || query.locations) {
+      const locations = query.locations || [query.location];
+      const q = query.parameter ?
+        { $and: [{ "location.locationId": { $in: locations } }, { "parameter.parameterId": { $eq: query.parameter } }] } :
+        { "location.locationId": { $in: locations } }
+      const timeseries = await db.collection('timeseries').find(q).toArray();
+      res.send(timeseries);
+    }
   } catch (e) {
     res.status(500).send(e.toString());
   }

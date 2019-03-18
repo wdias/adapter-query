@@ -17,9 +17,11 @@ Redefine:
 - Area → Locations
 /parameter
 - Location → Parameters
+- Locations → Parameters
 /timeseries
 - Location → Timeseries
 - Locations → Timeseries
+- Locations, Parameter → Timeseries
 - Area → Timeseries
 - Area, Parameter → Timeseries
 - *, Parameter → Timeseries
