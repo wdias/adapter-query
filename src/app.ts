@@ -1,54 +1,49 @@
 import { Request, Response } from "express";
+import { MongoClient, Db } from "mongodb";
 
 import express from "express";
 import compression from "compression";  // compresses requests
 import expressValidator from "express-validator";
 import bodyParser from "body-parser";
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { MetadataIds, metadataIdsDecoder, ValueType } from './types';
-
-const adapterMetadata = 'http://adapter-metadata.default.svc.cluster.local';
-const clientMetadata: AxiosInstance = axios.create({
-  baseURL: adapterMetadata,
-  timeout: 3000,
-  headers: { 'Content-Type': 'application/json' },
-});
-const adapterScalar = 'http://adapter-scalar.default.svc.cluster.local';
-const clientScalar: AxiosInstance = axios.create({
-  baseURL: adapterScalar,
-  timeout: 3000,
-  headers: { 'Content-Type': 'application/json' },
-});
+import { Metadata, metadataDecoder } from './types';
 
 // Create Express server
 const app = express();
+let db: Db;
 
 app.use(compression());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(expressValidator());
 
-app.post('/import/json/raw/:timeseriesId', async (req: Request, res: Response) => {
+export const initDatabase = async () => {
+  const mongodbSVC: string = 'adapter-query-mongodb.default.svc.cluster.local'
+  const client: MongoClient = await MongoClient.connect(`mongodb://root:root123@${mongodbSVC}:27017/?authSource=admin`, { useNewUrlParser: true });
+  db = client.db('query');
+  db.collection('locations').createIndex({ loc: "2dsphere" });
+}
+
+app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
   try {
     const timeseriesId: string = req.params.timeseriesId;
     console.log('timeseriesId: ', req.params.timeseriesId);
     const data: JSON = req.body;
-    console.log('data: ', data);
-    const resp: AxiosResponse = await clientMetadata.get(`/timeseries/${timeseriesId}`);
-    const metadataIds: MetadataIds = metadataIdsDecoder.runWithException(resp.data);
-    if (metadataIds.valueType === ValueType.Scalar) {
-      const result: AxiosResponse = await clientScalar.post(`timeseries/${timeseriesId}`, data);
-      res.status(result.status).send(result.data);
-    } else {
-      res.status(400).send(`Unknown Value Type: ${metadataIds.valueType}`);
-    }
+    const metadata: Metadata = metadataDecoder.runWithException(data);
+    await db.collection('locations').insertOne(
+      {
+        loc: { type: "Point", coordinates: [-73.97, 40.77] },
+        name: "Central Park",
+        category: "Parks"
+      }
+    )
+    res.send(JSON.stringify(metadata));
   } catch (e) {
     res.status(500).send(e.toString());
   }
 });
 
-app.get('/import/public/hc', (req: Request, res: Response) => {
-  console.log('Import Health Check 1');
+app.get('/public/hc', (req: Request, res: Response) => {
+  console.log('Query Health Check 1');
   res.send('OK');
 });
 

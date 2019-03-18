@@ -75,13 +75,33 @@ export type MetadataIds = {
   timeseriesType: TimeseriesType,
   timeStepId: string,
 }
-export const metadataIdsDecoder: Decoder<MetadataIds> = object({
+export const parameterDecoder: Decoder<Parameter> = object({
+  parameterId: string(),
+  variable: string(),
+  unit: string(),
+  parameterType: oneOf(constant(ParameterType.Accumulative), constant(ParameterType.Instantaneous), constant(ParameterType.Mean)),
+});
+export const locationDecoder: Decoder<Location> = object({
+  locationId: string(),
+  name: string(),
+  lat: number(),
+  lon: number(),
+  elevation: optional(number()),
+  description: optional(string()),
+});
+export const timeStepDecoder: Decoder<TimeStep> = object({
+  timeStepId: string(),
+  unit: oneOf(constant(TimeStepUnit.Second), constant(TimeStepUnit.Minute), constant(TimeStepUnit.Hour), constant(TimeStepUnit.Day), constant(TimeStepUnit.Week), constant(TimeStepUnit.Month), constant(TimeStepUnit.Year), constant(TimeStepUnit.NonEquidistant)),
+  multiplier: optional(number()),
+  divider: optional(number()),
+})
+export const metadataDecoder: Decoder<Metadata> = object({
   moduleId: string(),
   valueType: oneOf(constant(ValueType.Scalar), constant(ValueType.Vector), constant(ValueType.Grid)),
-  parameterId: string(),
-  locationId: string(),
+  parameter: parameterDecoder,
+  location: locationDecoder,
   timeseriesType: oneOf(constant(TimeseriesType.ExternalHistorical), constant(TimeseriesType.ExternalForecasting), constant(TimeseriesType.SimulatedHistorical), constant(TimeseriesType.SimulatedForecasting)),
-  timeStepId: string(),
+  timeStep: timeStepDecoder,
 });
 
 // DataPoint

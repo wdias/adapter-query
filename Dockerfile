@@ -1,4 +1,5 @@
-FROM node:10.10.0-slim
+FROM node:11.11-stretch-slim
+MAINTAINER gckarunarathne@gmail.com
 
 RUN npm install --global nodemon
 # TODO: Use package.json TypeScript version
