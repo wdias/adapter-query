@@ -24,7 +24,8 @@ Redefine:
 - Area, Parameter → Timeseries
 - *, Parameter → Timeseries
 - \* → Timeseries
-TODO (Time support: Get Timeseries on given time)
+
+TODO: (Time support: Get Timeseries on given time)
 - Area, Time → Timeseries
 - Area, Parameter, Time → Timeseries
 - *, Time → Timeseries

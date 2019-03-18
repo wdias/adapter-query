@@ -7,6 +7,7 @@ import expressValidator from "express-validator";
 import bodyParser from "body-parser";
 import { Metadata, metadataDecoder } from './types';
 import { Polygon, GeoJsonObject } from "geojson";
+import { initLocations, initParameters, initTimeseries } from "./utils";
 
 // Create Express server
 const app = express();
@@ -21,36 +22,9 @@ export const initDatabase = async () => {
   const mongodbSVC: string = 'adapter-query-mongodb.default.svc.cluster.local'
   const client: MongoClient = await MongoClient.connect(`mongodb://root:root123@${mongodbSVC}:27017/?authSource=admin`, { useNewUrlParser: true });
   db = client.db('query');
-  try {
-    await db.collection('locations').insertOne({
-      location: { type: "Point", coordinates: [0.0, 0.0] },
-      name: 'Zero',
-      locationId: 'zeroId',
-      category: "Location"
-    });
-  } catch (error) {
-    if (!(error instanceof MongoError)) {
-      throw error;
-    }
-  }
-  db.collection('locations').createIndex({ location: "2dsphere" });
-  db.collection('locations').createIndex({ locationId: 1 }, { unique: true });
-  try {
-    await db.collection('parameters').insertOne({
-      locationId: 'zeroId',
-      parameter: {
-        parameterId: 'O.Precipitation',
-        variable: 'Precipitation',
-        unit: 'mm',
-        parameterType: 'Instantaneous'
-      }
-    });
-  } catch (error) {
-    if (!(error instanceof MongoError)) {
-      throw error;
-    }
-  }
-  db.collection('parameters').createIndex({ "locationId": 1, "parameter.parameterId": 1 }, { unique: true });
+  initLocations(db);
+  initParameters(db);
+  initTimeseries(db);
 }
 
 app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
