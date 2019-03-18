@@ -123,6 +123,36 @@ app.post('/timeseries', async (req: Request, res: Response) => {
         { "location.locationId": { $in: locations } }
       const timeseries = await db.collection('timeseries').find(q).toArray();
       res.send(timeseries);
+    } else if (query.geoJson) {
+      const geoJsonData: JSON = JSON.parse(JSON.stringify(query.geoJson));
+      if ('type' in geoJsonData) {
+        const obj: GeoJsonObject = geoJsonData;
+        if (obj.type === 'Polygon') {
+          const polygon: Polygon = geoJsonData;
+          const locations = await db.collection('locations').find({
+            location: {
+              $geoWithin: {
+                $geometry: {
+                  type: "Polygon",
+                  coordinates: polygon.coordinates,
+                }
+              }
+            }
+          }).project({ locationId: 1 }).limit(1000).map(v => v.locationId).toArray();
+          const q = query.parameter ?
+            { $and: [{ "location.locationId": { $in: locations } }, { "parameter.parameterId": { $eq: query.parameter } }] } :
+            { "location.locationId": { $in: locations } }
+          const timeseries = await db.collection('timeseries').find(q).toArray();
+          res.send(timeseries);
+        }
+      } else {
+        res.status(400).send('Should have be type of Polygon or Box - https://docs.mongodb.com/manual/reference/geojson/');
+      }
+    } else {
+      const q = query.parameter ?
+        { "parameter.parameterId": { $eq: query.parameter } } : {}
+      const timeseries = await db.collection('timeseries').find(q).toArray();
+      res.send(timeseries);
     }
   } catch (e) {
     res.status(500).send(e.toString());
