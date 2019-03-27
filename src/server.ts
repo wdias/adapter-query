@@ -1,4 +1,3 @@
-import MongoClient, { MongoClientOptions } from 'mongodb';
 import errorHandler from "errorhandler";
 
 import app, { initDatabase } from "./app";

@@ -1,4 +1,4 @@
-import { Decoder, object, string, optional, number, array, oneOf, constant } from '@mojotech/json-type-validation';
+import { Decoder, object, string, optional, array } from '@mojotech/json-type-validation';
 
 export type TimeseriesQuery = {
     location?: string,

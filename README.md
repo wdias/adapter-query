@@ -11,14 +11,14 @@ Adapter for Query Timeseries data microservice.
 - *, Time → Timeseries
 - *, * → Timeseries
 
-Redefine:
-/location
+# Redefine:
+#### /location
 - \* → Locations
 - Area → Locations
-/parameter
+#### /parameter
 - Location → Parameters
 - Locations → Parameters
-/timeseries
+#### /timeseries
 - Location → Timeseries
 - Locations → Timeseries
 - Locations, Parameter → Timeseries
@@ -68,3 +68,5 @@ POST with GeoJson objects
 ```
 
 # /parameter
+
+# /timeseries
