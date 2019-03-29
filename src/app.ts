@@ -8,25 +8,16 @@ import bodyParser from "body-parser";
 import { Polygon, GeoJsonObject } from "geojson";
 import { Metadata, metadataDecoder } from './types';
 import { timeseriesQueryDecoder, TimeseriesQuery } from "./types/query";
-import { initLocations, initParameters, initTimeseries } from "./utils";
+import { getDb as db } from "./utils";
+import timeseries from './api/timeseries';
 
 // Create Express server
 const app = express();
-let db: Db;
 
 app.use(compression());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(expressValidator());
-
-export const initDatabase = async () => {
-  const mongodbSVC: string = 'adapter-query-mongodb.default.svc.cluster.local'
-  const client: MongoClient = await MongoClient.connect(`mongodb://root:root123@${mongodbSVC}:27017/?authSource=admin`, { useNewUrlParser: true });
-  db = client.db('query');
-  initLocations(db);
-  initParameters(db);
-  initTimeseries(db);
-}
 
 const insertOnewithFail = async (database: Db, collection: string, data: object): Promise<string> => {
   try {
@@ -41,24 +32,24 @@ const insertOnewithFail = async (database: Db, collection: string, data: object)
   }
 }
 
-app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
+app.post('/query/index/:timeseriesId', async (req: Request, res: Response) => {
   try {
     const timeseriesId: string = req.params.timeseriesId;
-    console.log('/index timeseriesId: ', timeseriesId);
+    console.log('/query/index timeseriesId: ', timeseriesId);
     const data: JSON = req.body;
     const metadata: Metadata = metadataDecoder.runWithException(data);
     let msg: string[] = [];
-    const resLocations: string = await insertOnewithFail(db, 'locations', {
+    const resLocations: string = await insertOnewithFail(db(), 'locations', {
       location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
       name: metadata.location.name,
       locationId: metadata.location.locationId,
       category: "Location"
     });
-    const resParamters: string = await insertOnewithFail(db, 'parameters', {
+    const resParamters: string = await insertOnewithFail(db(), 'parameters', {
       locationId: metadata.location.locationId,
       parameter: metadata.parameter,
     });
-    const resTimeseries: string = await insertOnewithFail(db, 'timeseries', {
+    const resTimeseries: string = await insertOnewithFail(db(), 'timeseries', {
       timeseriesId: timeseriesId,
       ...data,
     });
@@ -68,15 +59,15 @@ app.post('/index/:timeseriesId', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/location', async (req: Request, res: Response) => {
+app.post('/query/location', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    console.log('/location data: ', data);
+    console.log('/query/location data: ', data);
     if ('type' in data) {
       const obj: GeoJsonObject = data;
       if (obj.type === 'Polygon') {
         const polygon: Polygon = data;
-        const locations = await db.collection('locations').find({
+        const locations = await db().collection('locations').find({
           location: {
             $geoWithin: {
               $geometry: {
@@ -87,21 +78,24 @@ app.post('/location', async (req: Request, res: Response) => {
           }
         }).limit(1000).toArray();
         res.send(locations);
+      } else {
+        res.status(400).send('Should have be type of Polygon or Box - https://docs.mongodb.com/manual/reference/geojson/');
       }
     } else {
-      res.status(400).send('Should have be type of Polygon or Box - https://docs.mongodb.com/manual/reference/geojson/');
+      const locations = await db().collection('locations').find({}).limit(1000).toArray();
+      res.send(locations);
     }
   } catch (e) {
     res.status(500).send(e.toString());
   }
 });
 
-app.post('/parameter', async (req: Request, res: Response) => {
+app.post('/query/parameter', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    console.log('/parameter data:', data);
+    console.log('/query/parameter data:', data);
     if (Array.isArray(data) && data.length) {
-      const parameters = await db.collection('parameters').find({ locationId: { $in: data } }).toArray();
+      const parameters = await db().collection('parameters').find({ locationId: { $in: data } }).toArray();
       res.send(parameters);
     } else {
       res.status(500).send('Should be an array of locationId');
@@ -111,17 +105,17 @@ app.post('/parameter', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/timeseries', async (req: Request, res: Response) => {
+app.post('/query/timeseries', async (req: Request, res: Response) => {
   try {
     const data: JSON = req.body;
-    console.log('/timeseries data:', data);
+    console.log('/query/timeseries data:', data);
     const query: TimeseriesQuery = timeseriesQueryDecoder.runWithException(data);
     if (query.location || query.locations) {
       const locations = query.locations || [query.location];
       const q = query.parameter ?
         { $and: [{ "location.locationId": { $in: locations } }, { "parameter.parameterId": { $eq: query.parameter } }] } :
         { "location.locationId": { $in: locations } }
-      const timeseries = await db.collection('timeseries').find(q).toArray();
+      const timeseries = await db().collection('timeseries').find(q).toArray();
       res.send(timeseries);
     } else if (query.geoJson) {
       const geoJsonData: JSON = JSON.parse(JSON.stringify(query.geoJson));
@@ -129,7 +123,7 @@ app.post('/timeseries', async (req: Request, res: Response) => {
         const obj: GeoJsonObject = geoJsonData;
         if (obj.type === 'Polygon') {
           const polygon: Polygon = geoJsonData;
-          const locations = await db.collection('locations').find({
+          const locations = await db().collection('locations').find({
             location: {
               $geoWithin: {
                 $geometry: {
@@ -142,7 +136,7 @@ app.post('/timeseries', async (req: Request, res: Response) => {
           const q = query.parameter ?
             { $and: [{ "location.locationId": { $in: locations } }, { "parameter.parameterId": { $eq: query.parameter } }] } :
             { "location.locationId": { $in: locations } }
-          const timeseries = await db.collection('timeseries').find(q).toArray();
+          const timeseries = await db().collection('timeseries').find(q).toArray();
           res.send(timeseries);
         }
       } else {
@@ -151,7 +145,7 @@ app.post('/timeseries', async (req: Request, res: Response) => {
     } else {
       const q = query.parameter ?
         { "parameter.parameterId": { $eq: query.parameter } } : {}
-      const timeseries = await db.collection('timeseries').find(q).toArray();
+      const timeseries = await db().collection('timeseries').find(q).toArray();
       res.send(timeseries);
     }
   } catch (e) {
@@ -159,9 +153,11 @@ app.post('/timeseries', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/public/hc', (req: Request, res: Response) => {
+app.get('/query/public/hc', (req: Request, res: Response) => {
   console.log('Query Health Check 1');
   res.send('OK');
 });
+
+app.use('/metadata', timeseries);
 
 export default app;

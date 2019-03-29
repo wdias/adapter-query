@@ -1,4 +1,19 @@
-import { Db, MongoError, ObjectID } from "mongodb";
+import { Db, MongoError, MongoClient } from "mongodb";
+
+let db: Db;
+
+export const initDatabase = async () => {
+    const mongodbSVC: string = 'adapter-query-mongodb.default.svc.cluster.local'
+    const client: MongoClient = await MongoClient.connect(`mongodb://root:root123@${mongodbSVC}:27017/?authSource=admin`, { useNewUrlParser: true });
+    db = client.db('query');
+    initLocations(db);
+    initParameters(db);
+    initTimeseries(db);
+}
+
+export const getDb = (): Db => {
+    return db;
+}
 
 export const initLocations = async (db: Db) => {
     try {

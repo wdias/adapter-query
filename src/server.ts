@@ -1,6 +1,7 @@
 import errorHandler from "errorhandler";
 
-import app, { initDatabase } from "./app";
+import app from "./app";
+import { initDatabase } from "./utils";
 
 /**
  * Error Handler. Provides full stack - remove for production
