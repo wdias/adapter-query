@@ -55,7 +55,19 @@ router.get('/timeseries/:timeseriesId', async (req: Request, res: Response) => {
         const timeseriesId: string = req.params.timeseriesId;
         console.log('/timeseries/:timeseriesId: ', timeseriesId);
         const timeseries = await db().collection('timeseries').findOne({ "timeseriesId": timeseriesId });
-        res.send(timeseries);
+        if (timeseries) {
+            res.send(timeseries);
+        } else {
+            const resp: AxiosResponse = await clientMetadata.get(`/timeseries/${timeseriesId}?full=true`);
+            const metadata: Metadata = metadataDecoder.runWithException(resp.data);
+            if ('timeseriesId' in resp.data) {
+                const msg: string[] = await indexTimeseries(resp.data['timeseriesId'], metadata);
+                console.info(msg);
+                res.send(metadata);
+            } else {
+                res.status(400).send('Unable to create timeseries. Try again.');
+            }
+        }
     } catch (e) {
         res.status(500).send(e.toString());
     }
@@ -82,7 +94,24 @@ router.get('/timeseries', async (req: Request, res: Response) => {
             }
         }
         const timeseries = await db().collection('timeseries').find({ ...q }).limit(1000).toArray();
+        // TODO: Listing will only look on MongoDB, need to sync with the MySQL
         res.send(timeseries);
+    } catch (e) {
+        res.status(500).send(e.toString());
+    }
+});
+
+router.delete('/timeseries/:timeseriesId', async (req: Request, res: Response) => {
+    try {
+        const timeseriesId: string = req.params.timeseriesId;
+        console.log('DELETE /timeseries/:timeseriesId: ', timeseriesId);
+        const resp: AxiosResponse = await clientMetadata.get(`/timeseries/${timeseriesId}?full=true`);
+        if (resp.data === timeseriesId) {
+            const timeseries = await db().collection('timeseries').deleteOne({ "timeseriesId": timeseriesId });
+            res.send(timeseriesId);
+        } else {
+            res.status(resp.status).send(resp.data);
+        }
     } catch (e) {
         res.status(500).send(e.toString());
     }

@@ -32,6 +32,9 @@ const insertOnewithFail = async (database: Db, collection: string, data: object)
   }
 }
 
+// 1. when new timeseries create via adapter-query -> it'll get indexed
+// 2. when create a new extension, then adapter-extension is responsible to indexing them
+// |-> in order to reduce the load and waiting time on adapter-metadata
 export const indexTimeseries = async (timeseriesId: string, metadata: Metadata): Promise<string[]> => {
   const resLocations: string = await insertOnewithFail(db(), 'locations', {
     location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
