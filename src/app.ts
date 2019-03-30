@@ -32,28 +32,32 @@ const insertOnewithFail = async (database: Db, collection: string, data: object)
   }
 }
 
+export const indexTimeseries = async (timeseriesId: string, metadata: Metadata): Promise<string[]> => {
+  const resLocations: string = await insertOnewithFail(db(), 'locations', {
+    location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
+    name: metadata.location.name,
+    locationId: metadata.location.locationId,
+    category: "Location"
+  });
+  const resParamters: string = await insertOnewithFail(db(), 'parameters', {
+    locationId: metadata.location.locationId,
+    parameter: metadata.parameter,
+  });
+  const resTimeseries: string = await insertOnewithFail(db(), 'timeseries', {
+    timeseriesId: timeseriesId,
+    ...metadata,
+  });
+  return [resLocations, resParamters, resTimeseries];
+}
+
 app.post('/query/index/:timeseriesId', async (req: Request, res: Response) => {
   try {
     const timeseriesId: string = req.params.timeseriesId;
     console.log('/query/index timeseriesId: ', timeseriesId);
     const data: JSON = req.body;
     const metadata: Metadata = metadataDecoder.runWithException(data);
-    let msg: string[] = [];
-    const resLocations: string = await insertOnewithFail(db(), 'locations', {
-      location: { type: "Point", coordinates: [metadata.location.lon, metadata.location.lat] },
-      name: metadata.location.name,
-      locationId: metadata.location.locationId,
-      category: "Location"
-    });
-    const resParamters: string = await insertOnewithFail(db(), 'parameters', {
-      locationId: metadata.location.locationId,
-      parameter: metadata.parameter,
-    });
-    const resTimeseries: string = await insertOnewithFail(db(), 'timeseries', {
-      timeseriesId: timeseriesId,
-      ...data,
-    });
-    res.send([resLocations, resParamters, resTimeseries]);
+    const resp: string[] = await indexTimeseries(timeseriesId, metadata);
+    res.send(resp);
   } catch (e) {
     res.status(500).send(e.toString());
   }

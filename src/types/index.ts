@@ -103,6 +103,14 @@ export const metadataDecoder: Decoder<Metadata> = object({
   timeseriesType: oneOf(constant(TimeseriesType.ExternalHistorical), constant(TimeseriesType.ExternalForecasting), constant(TimeseriesType.SimulatedHistorical), constant(TimeseriesType.SimulatedForecasting)),
   timeStep: timeStepDecoder,
 });
+export const metadataIdsDecoder: Decoder<MetadataIds> = object({
+  moduleId: string(),
+  valueType: oneOf(constant(ValueType.Scalar), constant(ValueType.Vector), constant(ValueType.Grid)),
+  parameterId: string(),
+  locationId: string(),
+  timeseriesType: oneOf(constant(TimeseriesType.ExternalHistorical), constant(TimeseriesType.ExternalForecasting), constant(TimeseriesType.SimulatedHistorical), constant(TimeseriesType.SimulatedForecasting)),
+  timeStepId: string(),
+});
 
 // DataPoint
 export type DataPoint = {
