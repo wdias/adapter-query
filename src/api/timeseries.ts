@@ -50,4 +50,42 @@ router.post('/timeseries', async (req: Request, res: Response) => {
     }
 });
 
+router.get('/timeseries/:timeseriesId', async (req: Request, res: Response) => {
+    try {
+        const timeseriesId: string = req.params.timeseriesId;
+        console.log('/timeseries/:timeseriesId: ', timeseriesId);
+        const timeseries = await db().collection('timeseries').findOne({ "timeseriesId": timeseriesId });
+        res.send(timeseries);
+    } catch (e) {
+        res.status(500).send(e.toString());
+    }
+});
+
+router.get('/timeseries', async (req: Request, res: Response) => {
+    const queryMap: { [key: string]: string } = {
+        "moduleId": "moduleId",
+        "valueType": "valueType",
+        "parameterId": "parameter.parameterId",
+        "parameter.variable": "parameter.variable",
+        "locationId": "location.locationId",
+        "location.name": "location.name",
+        "timeseriesType": "timeseriesType",
+        "timeStepId": "timeStep.timeStepId",
+    };
+    try {
+        console.log('/timeseries: ', req.query);
+        const query = req.query;
+        let q: { [key: string]: string } = {}
+        for (const key of Object.keys(queryMap)) {
+            if (query[key]) {
+                q[queryMap[key]] = query[key];
+            }
+        }
+        const timeseries = await db().collection('timeseries').find({ ...q }).limit(1000).toArray();
+        res.send(timeseries);
+    } catch (e) {
+        res.status(500).send(e.toString());
+    }
+});
+
 export default router;
