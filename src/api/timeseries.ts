@@ -35,7 +35,7 @@ router.post('/timeseries', async (req: Request, res: Response) => {
             if ('timeseriesId' in resp.data) {
                 const msg: string[] = await indexTimeseries(resp.data['timeseriesId'], metadata);
                 console.info(msg);
-                res.send(metadata);
+                res.send(resp.data);
             } else {
                 res.status(400).send('Unable to create timeseries. Try again.');
             }
@@ -63,7 +63,7 @@ router.get('/timeseries/:timeseriesId', async (req: Request, res: Response) => {
             if ('timeseriesId' in resp.data) {
                 const msg: string[] = await indexTimeseries(resp.data['timeseriesId'], metadata);
                 console.info(msg);
-                res.send(metadata);
+                res.send(resp.data);
             } else {
                 res.status(400).send('Unable to create timeseries. Try again.');
             }

@@ -23,13 +23,27 @@ export type Parameter = {
 }
 
 // 4. Location
+export type FirstCellCenter = {
+  x: number,
+  y: number,
+}
+export type GridFirstCell = {
+  firstCellCenter: FirstCellCenter,
+  xCellSize: number,
+  yCellSize: number,
+}
 export type Location = {
   locationId: string,
-  name: string,
-  lat: number,
-  lon: number,
+  name?: string,
+  lat?: number,
+  lon?: number,
   elevation?: number,
   description?: string,
+  // Grid
+  rows?: number,
+  columns?: number,
+  GeoDatum?: string,
+  gridFirstCell?: GridFirstCell,
 }
 
 // 5. TimeseriesType
@@ -81,13 +95,27 @@ export const parameterDecoder: Decoder<Parameter> = object({
   unit: string(),
   parameterType: oneOf(constant(ParameterType.Accumulative), constant(ParameterType.Instantaneous), constant(ParameterType.Mean)),
 });
+export const firstCellCenterDecoder: Decoder<FirstCellCenter> = object({
+  x: number(),
+  y: number(),
+})
+export const gridFirstCellDecoder: Decoder<GridFirstCell> = object({
+  firstCellCenter: firstCellCenterDecoder,
+  xCellSize: number(),
+  yCellSize: number(),
+})
 export const locationDecoder: Decoder<Location> = object({
   locationId: string(),
-  name: string(),
-  lat: number(),
-  lon: number(),
+  name: optional(string()),
+  lat: optional(number()),
+  lon: optional(number()),
   elevation: optional(number()),
   description: optional(string()),
+  // Grid
+  rows: optional(number()),
+  columns: optional(number()),
+  GeoDatum: optional(string()),
+  gridFirstCell: optional(gridFirstCellDecoder),
 });
 export const timeStepDecoder: Decoder<TimeStep> = object({
   timeStepId: string(),
