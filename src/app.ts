@@ -161,7 +161,7 @@ app.post('/query/timeseries', async (req: Request, res: Response) => {
 });
 
 app.get('/query/public/hc', (req: Request, res: Response) => {
-  console.log('Query Health Check 1');
+  console.log('Query Health Check OK');
   res.send('OK');
 });
 

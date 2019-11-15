@@ -57,7 +57,7 @@
     "@types/express-validator": "^3.0.0",
     "@types/geojson": "^7946.0.7",
     "@types/mongodb": "^3.1.28",
-    "@types/node": "^10.14.10",
+    "@types/node": "^10.17.5",
     "@types/request": "^2.48.1",
     "ts-node": "^7.0.1",
     "tslint": "^5.18.0",

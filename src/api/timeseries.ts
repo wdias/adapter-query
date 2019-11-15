@@ -117,4 +117,9 @@ router.delete('/timeseries/:timeseriesId', async (req: Request, res: Response) =
     }
 });
 
+router.get('/public/hc', (req: Request, res: Response) => {
+  console.log('Metadata Health Check OK');
+  res.send('OK');
+});
+
 export default router;
